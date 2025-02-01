@@ -83,8 +83,8 @@ def process_gcode(input_file, outer_layer_height, debug = False):
         line = lines[i]
         
         # Detect layer changes
-        if line.startswith("G1 Z"):
-            z_match = re.search(r'Z([-\d.]+)', line)
+        if line.startswith("G1 Z") or line.startswith(";Z"):
+            z_match = re.search(r'(?:;?Z:?)([-\d.]+)', line)
             if debug:
                 logging.info(f"Z change match in line {i}: {line}")
             if z_match:
