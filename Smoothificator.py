@@ -78,6 +78,7 @@ def process_gcode(input_file, outer_layer_height):
     # Process the G-code
     modified_lines = []
     i = 0
+    current_z = 0
     while i < len(lines):
         line = lines[i]
         
@@ -85,9 +86,12 @@ def process_gcode(input_file, outer_layer_height):
         if line.startswith("G1 Z"):
             z_match = re.search(r'Z([-\d.]+)', line)
             if z_match:
+                past_z = current_z
                 current_z = float(z_match.group(1))
                 current_layer += 1
                 logging.info(f"Layer {current_layer} detected at Z={current_z:.3f}")
+                if (past_z + (base_layer_height * 2) <= current_z):
+                    logging.error(f"Z difference was to big:{past_z} and {current_z}")
             modified_lines.append(line)
             i += 1
             continue
