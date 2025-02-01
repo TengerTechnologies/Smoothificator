@@ -106,7 +106,7 @@ def process_gcode(input_file, outer_layer_height, debug = False):
             # Collect all lines until next type change or empty line
             while i < len(lines):
                 current_line = lines[i]
-                if i + 1 < len(lines) and (";TYPE:" in lines[i + 1] or "M" in lines[i + 1] and not "M73" in lines[i + 1]):
+                if i + 1 < len(lines) and (";TYPE:" in lines[i + 1] or lines[i + 1].startswith(";Z") or lines[i + 1].startswith("M") and not "M73" in lines[i + 1]):
                     if debug:
                         logging.info(f"External block stopped in line {i + 1}: {lines[i + 1]}") 
                     external_block_lines.append(current_line)
