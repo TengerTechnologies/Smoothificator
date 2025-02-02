@@ -79,6 +79,8 @@ def process_gcode(input_file, outer_layer_height, debug = False):
     modified_lines = []
     i = 0
     current_z = 0
+    z_change_line = 0
+    had_outer = False
     while i < len(lines):
         line = lines[i]
         
@@ -88,6 +90,9 @@ def process_gcode(input_file, outer_layer_height, debug = False):
             if debug:
                 logging.info(f"Z change match in line {i}: {line}")
             if z_match:
+                if not had_outer:
+                    logging.info(f"Z change found but no outer line in layer: {current_z}")
+                had_outer = False;
                 past_z = current_z
                 current_z = float(z_match.group(1))
                 current_layer += 1
@@ -100,6 +105,7 @@ def process_gcode(input_file, outer_layer_height, debug = False):
 
         # Start of external perimeter block
         if ";TYPE:External perimeter" in line or ";TYPE:Outer wall" in line:
+            had_outer = True;
             if debug:
                 logging.info(f"External block in line: {i}")
             external_block_lines = []
@@ -132,7 +138,8 @@ def process_gcode(input_file, outer_layer_height, debug = False):
                 for pass_num in range(passes_needed):
                     # Calculate Z height for this pass
                     pass_z = current_z + (pass_num * height_per_pass)
-                    
+                    if debug:
+                        logging.info(f"External pass in z height: {pass_z}")
                     # Add travel move back to start position (except for first pass)
                     if pass_num > 0 and start_pos:
                         modified_lines.append(f"G1 X{start_pos[0]:.3f} Y{start_pos[1]:.3f} F9000 ; Travel back to start\n")
@@ -151,7 +158,10 @@ def process_gcode(input_file, outer_layer_height, debug = False):
                                 modified_lines.append(modified_line)
                         else:
                             modified_lines.append(block_line)
+            elif debug:
+                logging.info(f"External block start found but no lines in line {i}")
         else:
+             
             modified_lines.append(line)
             i += 1
 
