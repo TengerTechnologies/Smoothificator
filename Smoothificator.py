@@ -112,7 +112,7 @@ def process_gcode(input_file, outer_layer_height, debug = False):
             # Collect all lines until next type change or empty line
             while i < len(lines):
                 current_line = lines[i]
-                if i + 1 < len(lines) and (";TYPE:" in lines[i + 1] or lines[i + 1].startswith(";Z") ):
+                if i + 1 < len(lines) and ((";TYPE:" in lines[i + 1] and not ("Overhang" in lines[i + 1] or "Outer" in lines[i + 1]) or lines[i + 1].startswith(";Z"))):
                     if debug:
                         logging.info(f"External block stopped in line {i + 1}: {lines[i + 1]}") 
                     external_block_lines.append(current_line)
