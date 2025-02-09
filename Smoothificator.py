@@ -39,7 +39,7 @@ def get_layer_height(gcode_lines):
                 return float(match.group(1))
     return None
 
-def process_gcode(input_file, outer_layer_height):
+def process_gcode(input_file, outer_layer_height, debug = False):
     current_layer = 0
     current_z = 0.0
     in_external_perimeter = False
@@ -78,27 +78,43 @@ def process_gcode(input_file, outer_layer_height):
     # Process the G-code
     modified_lines = []
     i = 0
+    current_z = 0
+    z_change_line = 0
+    had_outer = False
     while i < len(lines):
         line = lines[i]
         
         # Detect layer changes
-        if line.startswith("G1 Z"):
-            z_match = re.search(r'Z([-\d.]+)', line)
+        if line.startswith(";Z"):
+            z_match = re.search(r'(?:;?Z:?)([-\d.]+)', line)
+            if debug:
+                logging.info(f"Z change match in line {i}: {line}")
             if z_match:
+                if not had_outer:
+                    logging.info(f"Z change found but no outer line in layer: {current_z}")
+                had_outer = False;
+                past_z = current_z
                 current_z = float(z_match.group(1))
                 current_layer += 1
                 logging.info(f"Layer {current_layer} detected at Z={current_z:.3f}")
+                if (past_z + (base_layer_height * 2) <= current_z):
+                    logging.error(f"Z difference was to big:{past_z} and {current_z}")
             modified_lines.append(line)
             i += 1
             continue
 
         # Start of external perimeter block
         if ";TYPE:External perimeter" in line or ";TYPE:Outer wall" in line:
+            had_outer = True;
+            if debug:
+                logging.info(f"External block in line: {i}")
             external_block_lines = []
             # Collect all lines until next type change or empty line
             while i < len(lines):
                 current_line = lines[i]
-                if i + 1 < len(lines) and (";TYPE:" in lines[i + 1] or "M" in lines[i + 1] and not "M73" in lines[i + 1]):
+                if i + 1 < len(lines) and ((";TYPE:" in lines[i + 1] and not ("Overhang" in lines[i + 1] or "Outer" in lines[i + 1]) or lines[i + 1].startswith(";Z"))):
+                    if debug:
+                        logging.info(f"External block stopped in line {i + 1}: {lines[i + 1]}") 
                     external_block_lines.append(current_line)
                     i += 1
                     break
@@ -122,7 +138,8 @@ def process_gcode(input_file, outer_layer_height):
                 for pass_num in range(passes_needed):
                     # Calculate Z height for this pass
                     pass_z = current_z + (pass_num * height_per_pass)
-                    
+                    if debug:
+                        logging.info(f"External pass in z height: {pass_z}")
                     # Add travel move back to start position (except for first pass)
                     if pass_num > 0 and start_pos:
                         modified_lines.append(f"G1 X{start_pos[0]:.3f} Y{start_pos[1]:.3f} F9000 ; Travel back to start\n")
@@ -141,7 +158,10 @@ def process_gcode(input_file, outer_layer_height):
                                 modified_lines.append(modified_line)
                         else:
                             modified_lines.append(block_line)
+            elif debug:
+                logging.info(f"External block start found but no lines in line {i}")
         else:
+             
             modified_lines.append(line)
             i += 1
 
@@ -158,7 +178,9 @@ if __name__ == "__main__":
     parser.add_argument('input_file', help='Input G-code file')
     parser.add_argument('-outerLayerHeight', '--outer-layer-height', type=float, required=True,
                        help='Desired height for outer walls (mm)')
+    parser.add_argument('-dev', '--debug', action=argparse.BooleanOptionalAction,
+                       help='Debug code')
     
     args = parser.parse_args()
     
-    process_gcode(input_file=args.input_file, outer_layer_height=args.outer_layer_height)
+    process_gcode(input_file=args.input_file, outer_layer_height=args.outer_layer_height, debug = args.debug)
